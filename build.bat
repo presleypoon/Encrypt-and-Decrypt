@@ -1,4 +1,4 @@
 @echo off
 cargo run
-pause
-exit
+@REM pause
+@REM exit

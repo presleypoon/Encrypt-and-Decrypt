@@ -26,7 +26,7 @@ impl Tree {
 		for r#char in input.chars() {
 			nodes[r#char as usize].freq += 1;
 		}
-
+		
 		nodes.sort_by(|a: &Tree, b: &Tree| -> std::cmp::Ordering {
 			a.freq
 				.cmp(&b.freq)
@@ -38,7 +38,7 @@ impl Tree {
 				freq: usize::MAX,
 				num_child: 0,
 			};
-
+			
 			nodes.sort_by(|a: &Tree, b: &Tree| -> std::cmp::Ordering {
 				a.freq
 					.cmp(&b.freq)
@@ -66,14 +66,14 @@ impl Tree {
 				freq: usize::MAX,
 				num_child: 0,
 			};
-
+			
 			nodes.sort_by(|a: &Tree, b: &Tree| -> std::cmp::Ordering {
 				a.freq
 					.cmp(&b.freq)
 					.then_with(|| -> std::cmp::Ordering { a.num_child.cmp(&b.num_child) })
 			});
 		}
-
+		
 		<Tree as Clone>::clone(&nodes[0])
 	}
 }
@@ -86,27 +86,39 @@ enum TreeChild {
 }
 
 fn main() {
-	let mut input: String = String::new();
-	print!("Input: ");
+	let mut is_encrypt: String = String::new();
+	print!("Encrypt [e] or Decrypt [d]");
 	stdout().flush().expect("Cannot flush");
-	stdin().read_line(&mut input).expect("Failed to read line");
-	input = input.trim().to_string();
-
-	let output: Vec<u8>= encrypt(input);
-	for item in &output {
-		print!("{item} ");
+	stdin().read_line(&mut is_encryped).expect("Failed to read line");
+	
+	match is_encrypt {
+		"e".to_string() => {
+			let mut input: String = String::new();
+			print!("Input: ");
+			stdout().flush().expect("Cannot flush");
+			stdin().read_line(&mut input).expect("Failed to read line");
+			input = input.trim().to_string();
+			
+			let output: Vec<u8>= encrypt("\0".to_string() + &input);
+			for item in &output {
+				print!("{:02x} ", item);
+			}
+			println!();
+			for item in &output {
+				print!("{:08b} ", item);
+			}
+			println!();
+		}
+		"d".to_string() => todo!(),
+		_ => unreachable(),
 	}
-	println!();
-	for item in &output {
-		print!("{} ", *item as char);
-	}
-	println!()
 }
 
 fn encrypt(input: String) -> Vec<u8> {
 	let tree: Tree = Tree::new(input.clone());
-	let table: Table = table(tree);
-	replace_str_with_table(input, table)
+	let table: Table = table(tree.clone());
+	let tree_encode: Vec<bool> = tree_encode(tree);
+	replace_str_with_table(input, table, tree_encode)
 }
 
 fn table(tree: Tree) -> Table {
@@ -114,7 +126,7 @@ fn table(tree: Tree) -> Table {
 	let mut path: Vec<bool> = vec![];
 	let mut last: Option<bool> = None;
 	let mut ran: bool = false;
-
+	
 	while !path.is_empty() || last == Some(false) || !ran {
 		let this_child: TreeChild = branch_finder(&tree, path.clone()).unwrap_or_else(|| -> TreeChild { unreachable!() });
 		
@@ -140,13 +152,13 @@ fn table(tree: Tree) -> Table {
 		}
 		ran = true;
 	}
-
+	
 	ret
 }
 
 fn branch_finder(tree: &Tree, path: Vec<bool>) -> Option<TreeChild> {
 	let mut this_tree: &TreeChild = &tree.tree;
-
+	
 	for this_bool in path {
 		match this_tree {
 			TreeChild::Tree { item } => {
@@ -155,51 +167,82 @@ fn branch_finder(tree: &Tree, path: Vec<bool>) -> Option<TreeChild> {
 			_ => return None,
 		}
 	}
-
+	
 	Some(this_tree.clone())
 }
 
-fn replace_str_with_table(input: String, mut table: Table) -> Vec<u8> {
-	let mut ret: Vec<bool> = Vec::new();
-
-	for r#char in input.chars() {
-		ret.append(&mut table[r#char as usize]);
+fn tree_encode(tree: Tree) -> Vec<bool> {
+	let mut ret: Vec<bool> = vec![true];
+	let mut path: Vec<bool> = vec![];
+	let mut last: Option<bool> = None;
+	let mut ran: bool = false;
+	
+	while !path.is_empty() || last == Some(false) || !ran {
+		let this_child: TreeChild = branch_finder(&tree, path.clone()).unwrap_or_else(|| -> TreeChild { unreachable!() });
+		
+		match this_child {
+			TreeChild::Tree { .. } => {
+				if let Some(bool_last) = last {
+					if bool_last {
+						last = path.pop();
+						ret.append(&mut vec![true, true]);
+					} else {
+						path.push(true);
+						last = None;
+						ret.append(&mut vec![true, false]);
+					}
+				} else {
+					path.push(false);
+					last = None;
+					ret.append(&mut vec![true, false]);
+				}
+			}
+			TreeChild::Char { item } => {
+				for i in (0..8).rev() {
+					ret.push(false);
+					ret.push(((item as u8) & (0x01 << i)) != 0);
+				}
+				last = path.pop();
+				ret.append(&mut vec![true, true]);
+			}
+			TreeChild::Null => unreachable!(),
+		}
+		ran = true;
 	}
+	
+	ret
+}
 
-	ret.reverse();
-
-	let mut i: i8 = 0;
+fn replace_str_with_table(input: String, table: Table, mut tree_encode: Vec<bool>) -> Vec<u8> {
+	tree_encode.extend(&vec![false; 24]);
+	
+	for r#char in input.chars() {
+		tree_encode.extend(&table[r#char as usize]);
+	}
+	
+	tree_encode.push(true);
+	
+	let mut i: i8 = 7;
 	let mut this: u8 = 0;
-	let old_ret: Vec<bool> = ret.clone();
 	let mut ret: Vec<u8> = Vec::new();
-	for r#bool in old_ret {
-		this |= match r#bool {
-			false => 0x00,
-			true => 0xFF,
-		} & match i {
-			0 => 0x01,
-			1 => 0x02,
-			2 => 0x04,
-			3 => 0x08,
-			4 => 0x10,
-			5 => 0x20,
-			6 => 0x40,
-			7 => 0x80,
-			_ => unreachable!(),
-		};
-
+	let mut push_again: bool = false;
+	
+	for r#bool in tree_encode {
+		this |= (r#bool as u8 * 0xFF) & (0x01 << i);
+		push_again = true;
+		
 		i -= 1;
 		if i < 0 {
+			push_again = false;
 			i = 7;
 			ret.push(this);
 			this = 0;
 		}
 	}
-	if this != 0 {
+	
+	if push_again {
 		ret.push(this);
 	}
-
-	ret.reverse();
-
+	
 	ret
 }
