@@ -86,13 +86,14 @@ enum TreeChild {
 }
 
 fn main() {
-	let mut is_encrypt: String = String::new();
-	print!("Encrypt [e] or Decrypt [d]");
+	let mut mode: String = String::new();
+	print!("Encrypt [e] or Decrypt [d]: ");
 	stdout().flush().expect("Cannot flush");
-	stdin().read_line(&mut is_encryped).expect("Failed to read line");
+	stdin().read_line(&mut mode).expect("Failed to read line");
+	mode = mode.trim().to_string();
 	
-	match is_encrypt {
-		"e".to_string() => {
+	match mode.as_str() {
+		"e" => {
 			let mut input: String = String::new();
 			print!("Input: ");
 			stdout().flush().expect("Cannot flush");
@@ -109,8 +110,8 @@ fn main() {
 			}
 			println!();
 		}
-		"d".to_string() => todo!(),
-		_ => unreachable(),
+		"d" => todo!(),
+		_ => unreachable!(),
 	}
 }
 
