@@ -92,14 +92,17 @@ fn main() {
 	stdin().read_line(&mut input).expect("Failed to read line");
 	input = input.trim().to_string();
 
-	let output: String = encrypt(input);
-	todo!();
+	let output: Vec<u8>= encrypt(input);
+	for item in output {
+		print!("{item} ");
+	}
+	println!();
 }
 
-fn encrypt(input: String) -> String {
-	let tree: Tree = Tree::new(input);
+fn encrypt(input: String) -> Vec<u8> {
+	let tree: Tree = Tree::new(input.clone());
 	let table: Table = table(tree);
-	replace_str_with_table(input, table);
+	replace_str_with_table(input, table)
 }
 
 fn table(tree: Tree) -> Table {
@@ -152,14 +155,47 @@ fn branch_finder(tree: &Tree, path: Vec<bool>) -> Option<TreeChild> {
 	Some(this_tree.clone())
 }
 
-fn replace_str_with_table(input: String, mut table: Table) -> String {
+fn replace_str_with_table(input: String, mut table: Table) -> Vec<u8> {
 	let mut ret: Vec<bool> = Vec::new();
 
 	for r#char in input.chars() {
 		ret.append(&mut table[r#char as usize]);
 	}
 
-	
+	ret.reverse();
 
-	todo!()
+	let mut i: i8 = 0;
+	let mut this: u8 = 0;
+	let old_ret: Vec<bool> = ret.clone();
+	let mut ret: Vec<u8> = Vec::new();
+	for r#bool in old_ret {
+		this |= match r#bool {
+			false => 0x00,
+			true => 0xFF,
+		} & match i {
+			0 => 0x01,
+			1 => 0x02,
+			2 => 0x04,
+			3 => 0x08,
+			4 => 0x10,
+			5 => 0x20,
+			6 => 0x40,
+			7 => 0x80,
+			_ => unreachable!(),
+		};
+
+		i -= 1;
+		if i < 0 {
+			i = 7;
+			ret.push(this);
+			this = 0;
+		}
+	}
+	if this != 0 {
+		ret.push(this);
+	}
+
+	ret.reverse();
+
+	ret
 }
