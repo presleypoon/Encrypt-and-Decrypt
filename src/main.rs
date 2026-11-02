@@ -93,10 +93,14 @@ fn main() {
 	input = input.trim().to_string();
 
 	let output: Vec<u8>= encrypt(input);
-	for item in output {
+	for item in &output {
 		print!("{item} ");
 	}
 	println!();
+	for item in &output {
+		print!("{} ", *item as char);
+	}
+	println!()
 }
 
 fn encrypt(input: String) -> Vec<u8> {
